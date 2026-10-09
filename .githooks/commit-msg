@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+set -e
+
+COMMIT_MSG_FILE="$1"
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Conventional Commits regex
+REGEX='^(feat|fix|docs|style|refactor|perf|test|chore|build|ci|revert)(\([a-z0-9\-]+\))?: .+'
+
+if ! echo "$COMMIT_MSG" | grep -Eq "$REGEX"; then
+  echo "❌ Commit message does not follow Conventional Commits format"
+  echo "Example:"
+  echo "  feat(api): add new endpoint"
+  exit 1
+fi
+
+exit 0
