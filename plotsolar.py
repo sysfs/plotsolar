@@ -1,4 +1,4 @@
-import sys
+from pathlib import Path
 
 import pandas as pd
 
@@ -6,23 +6,30 @@ INPUT_FILE = "data.txt"
 DATE_FORMAT = None
 
 
-def main() -> None:
+def read_data(input_file: str | Path, date_format: str | None = None) -> pd.DataFrame:
+    """Read a headerless TSV containing date and cumulative value columns."""
+    data = pd.read_csv(
+        input_file,
+        sep="\t",
+        header=None,
+        names=["date", "value"],
+        dtype={1: "float64"},
+        engine="python",
+    )
+    data["date"] = pd.to_datetime(data["date"], format=date_format)
+    return data
+
+
+def main() -> int:
     try:
-        df = pd.read_csv(
-            INPUT_FILE,
-            sep="\t",
-            header=None,
-            names=["date", "value"],
-            dtype={1: "float64"},
-            engine="python",
-        )
-        df["date"] = pd.to_datetime(df["date"], format=DATE_FORMAT)
-    except Exception as e:
-        print(f"[ERROR] Failed to read file: {e}")
-        sys.exit(1)
+        read_data(INPUT_FILE, DATE_FORMAT)
+    except (OSError, ValueError) as error:
+        print(f"[ERROR] Failed to read file: {error}")
+        return 1
 
     print("[INFO] read data.txt")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
