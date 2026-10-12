@@ -19,6 +19,19 @@ def read_data(input_file: str | Path, date_format: str | None = None) -> pd.Data
     return data
 
 
+def clean_data(data: pd.DataFrame) -> pd.DataFrame:
+    if data.isnull().any().any():
+        data = data.dropna()
+
+    if data.empty or len(data) < 2:
+        raise ValueError("Not enough data points")
+
+    data = data.sort_values("date").reset_index(drop=True)
+    if not (data["value"].diff().dropna() >= 0).all():
+        print("[WARN] Values are not strictly increasing — check data integrity")
+    return data
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Solarpanel seasonal output calculator"""
     parser = argparse.ArgumentParser(
@@ -29,12 +42,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        read_data(args.input, args.date_format)
+        data = read_data(args.input, args.date_format)
     except (OSError, ValueError) as error:
         print(f"[ERROR] Failed to read file: {error}")
         return 1
-
     print(f"[INFO] read input file {args.input}")
+
+    try:
+        data = clean_data(data)
+    except ValueError as error:
+        print(f"[ERROR] {error}")
+        return 2
+
     return 0
 
 
