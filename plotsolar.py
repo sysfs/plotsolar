@@ -1,13 +1,12 @@
+import argparse
+from collections.abc import Sequence
 from pathlib import Path
 
 import pandas as pd
 
-INPUT_FILE = "data.txt"
-DATE_FORMAT = None
-
 
 def read_data(input_file: str | Path, date_format: str | None = None) -> pd.DataFrame:
-    """Read a headerless TSV containing date and cumulative value columns."""
+    """Read a headerless CSV containing date and cumulative value columns."""
     data = pd.read_csv(
         input_file,
         sep="\t",
@@ -20,14 +19,22 @@ def read_data(input_file: str | Path, date_format: str | None = None) -> pd.Data
     return data
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
+    """Solarpanel seasonal output calculator"""
+    parser = argparse.ArgumentParser(
+        description="Solarpanel seasonal output calculator"
+    )
+    parser.add_argument("--input", required=True, help="Path to CSV file")
+    parser.add_argument("--date-format", default=None, help="Optional date format")
+    args = parser.parse_args(argv)
+
     try:
-        read_data(INPUT_FILE, DATE_FORMAT)
+        read_data(args.input, args.date_format)
     except (OSError, ValueError) as error:
         print(f"[ERROR] Failed to read file: {error}")
         return 1
 
-    print("[INFO] read data.txt")
+    print(f"[INFO] read input file {args.input}")
     return 0
 
 
