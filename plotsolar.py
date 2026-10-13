@@ -32,6 +32,16 @@ def clean_data(data: pd.DataFrame) -> pd.DataFrame:
     return data
 
 
+def calculate_delta(data: pd.DataFrame) -> pd.DataFrame:
+    """Calculate interval rates from validated, chronological observations."""
+    rates = data.copy()
+    rates["delta_days"] = rates["date"].diff().dt.days
+    rates["delta_value"] = rates["value"].diff()
+    rates = rates[rates["delta_days"] > 0].copy()
+    rates["rate"] = rates["delta_value"] / rates["delta_days"]
+    return rates
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Solarpanel seasonal output calculator"""
     parser = argparse.ArgumentParser(
@@ -54,6 +64,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"[ERROR] {error}")
         return 2
 
+    calculate_delta(data)
     return 0
 
 
