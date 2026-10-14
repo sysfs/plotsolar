@@ -42,6 +42,26 @@ def calculate_delta(data: pd.DataFrame) -> pd.DataFrame:
     return rates
 
 
+def build_daily_series(rates: pd.DataFrame) -> pd.DataFrame:
+    """Expand each rate interval into daily samples, including the first."""
+    rows = []
+    for _, interval in rates.iterrows():
+        days = int(interval["delta_days"])
+        start_date = interval["date"] - pd.Timedelta(days=days)
+        for day in range(days):
+            rows.append(
+                {
+                    "date": start_date + pd.Timedelta(days=day),
+                    "rate": interval["rate"],
+                }
+            )
+
+    daily = pd.DataFrame(rows)
+    if daily.empty:
+        raise ValueError("No daily data generated")
+    return daily
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Solarpanel seasonal output calculator"""
     parser = argparse.ArgumentParser(
@@ -64,7 +84,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"[ERROR] {error}")
         return 2
 
-    calculate_delta(data)
+    rates = calculate_delta(data)
+    try:
+        build_daily_series(rates)
+    except ValueError as error:
+        print(f"[ERROR] {error}")
+        return 3
     return 0
 
 
