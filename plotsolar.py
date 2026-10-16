@@ -43,12 +43,14 @@ def calculate_delta(data: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_daily_series(rates: pd.DataFrame) -> pd.DataFrame:
-    """Expand each rate interval into daily samples, including the first."""
+    """Expand each rate interval into daily samples"""
     rows = []
-    for _, interval in rates.iterrows():
+    last_index = len(rates) - 1
+    for index, (_, interval) in enumerate(rates.iterrows()):
         days = int(interval["delta_days"])
         start_date = interval["date"] - pd.Timedelta(days=days)
-        for day in range(days):
+        interval_days = days + (index == last_index)
+        for day in range(interval_days):
             rows.append(
                 {
                     "date": start_date + pd.Timedelta(days=day),
