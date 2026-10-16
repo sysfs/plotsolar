@@ -2,7 +2,10 @@ import argparse
 from collections.abc import Sequence
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
+from statsmodels.nonparametric.smoothers_lowess import lowess
 
 
 def read_data(input_file: str | Path, date_format: str | None = None) -> pd.DataFrame:
@@ -64,6 +67,21 @@ def build_daily_series(rates: pd.DataFrame) -> pd.DataFrame:
     return daily
 
 
+def smooth_data(
+    daily: pd.DataFrame,
+) -> tuple[pd.DataFrame, NDArray[np.float64]]:
+    """Return mean day-of-year rates and their LOWESS-smoothed curve."""
+    daily = daily.assign(doy=daily["date"].dt.dayofyear)
+    seasonal = daily.groupby("doy")["rate"].mean().reset_index()
+    smoothed = lowess(
+        seasonal["rate"],
+        seasonal["doy"],
+        frac=0.1,
+        return_sorted=True,
+    )
+    return seasonal, smoothed
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Solarpanel seasonal output calculator"""
     parser = argparse.ArgumentParser(
@@ -88,10 +106,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     rates = calculate_delta(data)
     try:
-        build_daily_series(rates)
+        daily = build_daily_series(rates)
     except ValueError as error:
         print(f"[ERROR] {error}")
         return 3
+
+    smooth_data(daily)
     return 0
 
 
