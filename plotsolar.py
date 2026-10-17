@@ -4,6 +4,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 from numpy.typing import NDArray
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
@@ -82,6 +84,19 @@ def smooth_data(
     return seasonal, smoothed
 
 
+def plot_season(season: pd.DataFrame, smoothed: NDArray[np.float64]) -> Figure:
+    """Create the seasonal plot without showing it or blocking the caller."""
+    figure, axes = plt.subplots()
+    axes.plot(season["doy"], season["rate"], alpha=0.3, label="Raw seasonal rate")
+    axes.plot(smoothed[:, 0], smoothed[:, 1], color="red", label="Smoothed (LOWESS)")
+    axes.set_xlabel("Day of Year")
+    axes.set_ylabel("Growth Rate (value/day)")
+    axes.set_title("Seasonal Growth Rate")
+    axes.legend()
+    figure.tight_layout()
+    return figure
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Solarpanel seasonal output calculator"""
     parser = argparse.ArgumentParser(
@@ -89,6 +104,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--input", required=True, help="Path to CSV file")
     parser.add_argument("--date-format", default=None, help="Optional date format")
+    parser.add_argument(
+        "--plot",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show the seasonal plot (default: enabled)",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -111,7 +132,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"[ERROR] {error}")
         return 3
 
-    smooth_data(daily)
+    season, smoothed = smooth_data(daily)
+    if args.plot:
+        plot_season(season, smoothed)
+        plt.show()
+
     return 0
 
 
