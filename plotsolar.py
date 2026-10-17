@@ -1,5 +1,6 @@
 import argparse
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -8,6 +9,16 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from numpy.typing import NDArray
 from statsmodels.nonparametric.smoothers_lowess import lowess
+
+
+@dataclass(frozen=True)
+class Prediction:
+    """A simulated target crossing, or the end of the simulation horizon."""
+
+    target_value: int
+    date: pd.Timestamp
+    value: float
+    reached_target: bool
 
 
 def read_data(input_file: str | Path, date_format: str | None = None) -> pd.DataFrame:
@@ -97,6 +108,30 @@ def plot_season(season: pd.DataFrame, smoothed: NDArray[np.float64]) -> Figure:
     return figure
 
 
+def predict_next_target(
+    rates: pd.DataFrame, smoothed: NDArray[np.float64]
+) -> Prediction:
+    """Simulate the next multiple of 1000, with a five-year horizon."""
+    last_row = rates.iloc[-1]
+    current_value = last_row["value"]
+    target_value = (int(current_value / 1000) + 1) * 1000
+
+    smoothed_rates = pd.DataFrame(
+        {"doy": smoothed[:, 0].astype(int), "rate": smoothed[:, 1]}
+    ).set_index("doy")
+    smoothed_rates = smoothed_rates.reindex(range(1, 367)).interpolate().bfill().ffill()
+
+    sim_value = current_value
+    sim_date = last_row["date"]
+    for _ in range(365 * 5):
+        doy = sim_date.timetuple().tm_yday
+        sim_value += smoothed_rates.loc[doy, "rate"]
+        sim_date += pd.Timedelta(days=1)
+        if sim_value >= target_value:
+            return Prediction(target_value, sim_date, float(sim_value), True)
+    return Prediction(target_value, sim_date, float(sim_value), False)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Solarpanel seasonal output calculator"""
     parser = argparse.ArgumentParser(
@@ -109,6 +144,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Show the seasonal plot (default: enabled)",
+    )
+    parser.add_argument(
+        "--predict",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Predict the next target value (default: enabled)",
     )
     args = parser.parse_args(argv)
 
@@ -137,6 +178,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         plot_season(season, smoothed)
         plt.show()
 
+    if args.predict:
+        prediction = predict_next_target(rates, smoothed)
+        print(f"Current value: {rates.iloc[-1]['value']:.2f}")
+        print(f"Target value: {prediction.target_value}")
+        if not prediction.reached_target:
+            print("[WARN] Prediction exceeded max simulation horizon")
+        print(f"Predicted date: {prediction.date.date()}")
+        print(f"Predicted value: {prediction.value:.2f}")
     return 0
 
 
